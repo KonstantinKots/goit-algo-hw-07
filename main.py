@@ -23,14 +23,19 @@ class Phone(Field):
         if not (len(value) == 10 and value.isdigit()):
             raise ValueError("Not correct format number phone")
         super().__init__(value)
+
 #клас для зберігання дня народження, з перевіркою коректності введених даних
 class Birthday(Field):
     def __init__(self, value):
         clean_date = value.strip().replace("р.", "").replace(" ", "")
         try:
             today = datetime.date.today()
-            value = 
-
+            birthday = datetime.strptime(clean_date, "%d.%m.%Y").date()
+            if birthday > today:
+                return False, "Birthday cannot be in the future."
+            if (today.year - birthday.year) > 100:
+                return False, "Invalid birth year."
+            return True, birthday
         except ValueError:
             raise ValueError("Invalid date format. Use DD.MM.YYYY")
         super().__init__(value)
@@ -64,7 +69,7 @@ class Record:
         return next((p for p in self.phones if p.value == phone_num), None)
     
     def add_birthday(args, book):
-        self.birthday = datetime(data_b) #rework
+        self.birthday.append()
 
     def show_birthday(args, book):
         pass
@@ -91,51 +96,63 @@ class AddressBook(UserDict):
 
     def __str__(self) -> str:
         return f"\n" .join(str(record) for record in self.data.values())
-    
+
+    def add_contact(args, book: AddressBook):
+        name, phone, *_ = args
+        record = book.find(name)
+        massage = "Contact updated."
+        if record is None:
+            record = Record(name)
+            book.add_record(record)
+            massage = "Contact added."
+        if phone:
+            record.add_phone(phone)
+        return massage
+
+    def string_to_date(date_string):
+        return datetime.strptime(date_string, "%Y.%m.%d").date()
+
+    def date_to_string(date):
+        return date.strftime("%Y.%m.%d")
+
+    def prepare_user_list(user_data):
+        prepared_list = []
+        for user in user_data:
+            prepared_list.append({"name": user["name"], "birthday": string_to_date(user["birthday"])})
+        return prepared_list
+
+    def find_next_weekday(start_date, weekday):
+        days_ahead = weekday - start_date.weekday()
+        if days_ahead <= 0:
+            days_ahead += 7
+        return start_date + timedelta(days=days_ahead)
+
+    def adjust_for_weekend(birthday):
+        if birthday.weekday() >= 5:
+            return find_next_weekday(birthday, 0)
+        return birthday
+
+    def get_upcoming_birthdays(users, days=7):
+        upcoming_birthdays = []
+        today = date.today()
+
+        for user in users:
+            birthday_this_year = user["birthday"].replace(year=today.year)
+            if birthday_this_year < today:
+                birthday_this_year = birthday_this_year.replace(year=today.year + 1)
+        
+            if 0 <= (birthday_this_year - today).days <= days:
+                birthday_this_year = adjust_for_weekend(birthday_this_year)
+            congratulation_date_str = date_to_string(birthday_this_year)
+            upcoming_birthdays.append({"name": user["name"], "congratulation_date": congratulation_date_str})
+        return upcoming_birthdays
+
 #функція парсингу командної сторки
-@input_error
+    #@input_error
 def parse_input(user_input: str):
     cmd, *args = user_input.split()
     cmd = cmd.strip().lower()
     return cmd, *args
-
-def string_to_date(date_string):
-    return datetime.strptime(date_string, "%Y.%m.%d").date()
-
-def date_to_string(date):
-    return date.strftime("%Y.%m.%d")
-
-def prepare_user_list(user_data):
-    prepared_list = []
-    for user in user_data:
-        prepared_list.append({"name": user["name"], "birthday": string_to_date(user["birthday"])})
-    return prepared_list
-
-def find_next_weekday(start_date, weekday):
-    days_ahead = weekday - start_date.weekday()
-    if days_ahead <= 0:
-        days_ahead += 7
-    return start_date + timedelta(days=days_ahead)
-
-def adjust_for_weekend(birthday):
-    if birthday.weekday() >= 5:
-        return find_next_weekday(birthday, 0)
-    return birthday
-
-def get_upcoming_birthdays(users, days=7):
-    upcoming_birthdays = []
-    today = date.today()
-
-    for user in users:
-        birthday_this_year = user["birthday"].replace(year=today.year)
-        if birthday_this_year < today:
-            birthday_this_year = birthday_this_year.replace(year=today.year + 1)
-    
-        if 0 <= (birthday_this_year - today).days <= days:
-            birthday_this_year = adjust_for_weekend(birthday_this_year)
-        congratulation_date_str = date_to_string(birthday_this_year)
-        upcoming_birthdays.append({"name": user["name"], "congratulation_date": congratulation_date_str})
-    return upcoming_birthdays
 
 def main():
     book = AddressBook()
@@ -180,17 +197,16 @@ def main():
             print(commands)
 
         elif command == "add-birthday":
-            # реалізація
+            print(add_birthday(args, book))
 
         elif command == "show-birthday":
-            # реалізація
+            print(show_birthday(args))
 
         elif command == "birthdays":
-            # реалізація
+            print(birthday(args))
 
         else:
             print("Invalid command.")
-
 
 if __name__ == "__main__":
     main()
