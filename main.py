@@ -2,6 +2,8 @@
 from datetime import datetime, date, timedelta
 from collections import UserDict
 
+con_file = "addressbook.txt"
+
 def input_error(func):
     def inner(*args, **kwargs):
         try:
@@ -86,7 +88,10 @@ class Record:
         self.birthday = Birthday(birthday)
 
     def __str__(self):
-        return f"Contact name: {self.name.value}, phones: {'; '.join(p.value for p in self.phones)}"
+        result = f"Contact name: {self.name.value}, phones: {'; '.join(p.value for p in self.phones)}"
+        if self.birthday:
+            result += f", birthday: {self.birthday.value.strftime('%d.%m.%Y')}"
+        return result
 
 # клас для зберігання та управління записами
 class AddressBook(UserDict):
@@ -158,39 +163,28 @@ def show_all(book: AddressBook):
 # Записує словник contacts у текстовий файл.
 def save_books(book: AddressBook):
     with open(con_file, 'w', encoding='utf-8') as file:
-        for name, phone, birthday in book.items():
+        for name, record in book.items():
+            phone = record.phones[0].value if record.phones else "None"
+            birthday = record.birthday.value.strftime("%d.%m.%Y") if record.birthday else "None"
             file.write(f"{name}:{phone}:{birthday}\n")
 
 # Зчитує контактні данні з текстового файлу.
 def read_contact_file():
-    contacts = {}
+    book = AddressBook()
     try:
         with open(con_file, 'r', encoding='utf-8') as file:
             for line in file:
                 if ":" in line:
-                    name, phone = line.strip().split(":", 1)
-                    contacts[name.strip()] = phone.strip()
+                    name, phone, birthday = line.strip().split(":", 2)
+                    record = Record(name)
+                    if phone and phone != "None":
+                        record.add_phone(phone)
+                    if birthday and birthday != "None":
+                        record.add_birthday(birthday)
+                    book.add_record(record)
     except FileNotFoundError:
-        return {}
-    return contacts
-
-def string_to_date(date_string):
-    return datetime.strptime(date_string, "%d.%m.%Y").date()
-
-def date_to_string(date):
-    return date.strftime("%d.%m.%Y")
-
-def prepare_user_list(user_data):
-    prepared_list = []
-    for user in user_data:
-        prepared_list.append({"name": user["name"], "birthday": string_to_date(user["birthday"])})
-    return prepared_list
-
-def find_next_weekday(start_date, weekday):
-    days_ahead = weekday - start_date.weekday()
-    if days_ahead <= 0:
-        days_ahead += 7
-    return start_date + timedelta(days=days_ahead)
+        return AddressBook()
+    return book
 
 def adjust_for_weekend(birthday):
     if birthday.weekday() >= 5:
@@ -218,9 +212,11 @@ def show_birthday(args, book):
         return f"{name} birthday: {record.birthday.value.strftime("%d.%m.%Y")}"
     
 
-def birthdays(args, book):
-    pass
-
+def birthdays(book):
+    cong_list = get_upcoming_birthdays(book)
+    if not cong_list:
+        return "No birthdays next week"
+    return f"\n".join(cong_list)
 
 def main():
     book = AddressBook()
@@ -237,44 +233,47 @@ def main():
 '''
     print("\nWelcome to the assistant bot!\n")
     print(commands)
-    while True:
-        user_input = input("Enter a command: ")
-        command, *args = parse_input(user_input)
+    try:
+        while True:
+            user_input = input("Enter a command: ")
+            command, *args = parse_input(user_input)
 
-        if command in ["close", "exit"]:
-            save_books(book)
-            print("Good bye!")
-            break
+            if command in ["close", "exit"]:
+                print("Good bye!")
+                break
 
-        elif command == "hello":
-            print("How can I help you?")
-        
-        elif command == "add":
-            print(add_contact(args, book))
+            elif command == "hello":
+                print("How can I help you?")
             
-        elif command == "change":
-            print(change_contact(args, book))
+            elif command == "add":
+                print(add_contact(args, book))
+                
+            elif command == "change":
+                print(change_contact(args, book))
 
-        elif command == "phone":
-            print(show_phone(args, book))
+            elif command == "phone":
+                print(show_phone(args, book))
 
-        elif command == "all":
-            print(show_all(book))
+            elif command == "all":
+                print(show_all(book))
 
-        elif command == "help":
-            print(commands)
+            elif command == "help":
+                print(commands)
 
-        elif command == "add-birthday":
-            print(add_birthday(args, book))
+            elif command == "add-birthday":
+                print(add_birthday(args, book))
 
-        elif command == "show-birthday":
-            print(show_birthday(args, book))
+            elif command == "show-birthday":
+                print(show_birthday(args, book))
 
-        elif command == "birthdays":
-            print(birthdays(args, book))
+            elif command == "birthdays":
+                print(birthdays(args, book))
 
-        else:
-            print("Invalid command.")
+            else:
+                print("Invalid command.")
+    finally:
+        save_books(book)
+        print("AddressBook successfully saved")
 
 if __name__ == "__main__":
     main()
