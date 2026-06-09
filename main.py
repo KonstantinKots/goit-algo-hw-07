@@ -160,7 +160,7 @@ def show_phone(args: list, book: AddressBook):
 def show_all(book: AddressBook):
     return str(book)
 
-# Записує словник contacts у текстовий файл.
+# Записує адресну книгу у текстовий файл.
 def save_books(book: AddressBook):
     with open(con_file, 'w', encoding='utf-8') as file:
         for name, record in book.items():
@@ -174,35 +174,44 @@ def read_contact_file():
     try:
         with open(con_file, 'r', encoding='utf-8') as file:
             for line in file:
-                if ":" in line:
-                    name, phone, birthday = line.strip().split(":", 2)
-                    record = Record(name)
-                    if phone and phone != "None":
-                        record.add_phone(phone)
-                    if birthday and birthday != "None":
-                        record.add_birthday(birthday)
-                    book.add_record(record)
+                if not line or ":" not in line:
+                    continue
+                part = line.split(":", 2)
+                while len(part) < 3:
+                    part.append("")
+
+                name, phone, birthday = part
+
+                record = Record(name.strip())
+                if phone and phone != "None":
+                    record.add_phone(phone.strip())
+                if birthday and birthday != "None":
+                    record.add_birthday(birthday.strip())
+                book.add_record(record)
     except FileNotFoundError:
         return AddressBook()
     return book
 
 def adjust_for_weekend(birthday):
     if birthday.weekday() >= 5:
-        return find_next_weekday(birthday, 0)
+        days_ahead = 0 - birthday.weekday() + 7
+        return birthday + timedelta(days=days_ahead)
     return birthday
 
-def get_upcoming_birthdays(users, days=7):
+def get_upcoming_birthdays(book: AddressBook, days=7):
     upcoming_birthdays = []
     today = date.today()
-    for user in users:
-        birthday_this_year = user["birthday"].replace(year=today.year)
+    for record in book.values():
+        if not record.birthday:
+            continue
+        birthday_this_year = record.birthday.value.replace(year=today.year)
         if birthday_this_year < today:
             birthday_this_year = birthday_this_year.replace(year=today.year + 1)
     
         if 0 <= (birthday_this_year - today).days <= days:
             birthday_this_year = adjust_for_weekend(birthday_this_year)
-        congratulation_date_str = date_to_string(birthday_this_year)
-        upcoming_birthdays.append({"name": user["name"], "congratulation_date": congratulation_date_str})
+            congratulation_date_str = date_to_string(birthday_this_year)
+            upcoming_birthdays.append(f"{record.name.value}: {congratulation_date_str}")
     return upcoming_birthdays
 
 def show_birthday(args, book):
@@ -267,7 +276,7 @@ def main():
                 print(show_birthday(args, book))
 
             elif command == "birthdays":
-                print(birthdays(args, book))
+                print(birthdays(book))
 
             else:
                 print("Invalid command.")
