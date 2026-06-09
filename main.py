@@ -169,7 +169,7 @@ def save_books(book: AddressBook):
             file.write(f"{name}:{phone}:{birthday}\n")
 
 # Зчитує контактні данні з текстового файлу.
-def read_contact_file():
+def read_contact_file(con_file):
     book = AddressBook()
     try:
         with open(con_file, 'r', encoding='utf-8') as file:
@@ -210,7 +210,7 @@ def get_upcoming_birthdays(book: AddressBook, days=7):
     
         if 0 <= (birthday_this_year - today).days <= days:
             birthday_this_year = adjust_for_weekend(birthday_this_year)
-            congratulation_date_str = date_to_string(birthday_this_year)
+            congratulation_date_str = birthday_this_year.strftime("%d.%m.%Y")
             upcoming_birthdays.append(f"{record.name.value}: {congratulation_date_str}")
     return upcoming_birthdays
 
@@ -218,7 +218,7 @@ def show_birthday(args, book):
     name = args[0]
     record = book.find(name)
     if record and record.birthday:
-        return f"{name} birthday: {record.birthday.value.strftime("%d.%m.%Y")}"
+        return f'{name} birthday: {record.birthday.value.strftime("%d.%m.%Y")}'
     
 
 def birthdays(book):
@@ -228,11 +228,11 @@ def birthdays(book):
     return f"\n".join(cong_list)
 
 def main():
-    book = AddressBook()
+    book = read_contact_file(con_file)
     commands = '''
 1) exit, close - to exit the application
 2) add [name] [new phone] - to add a new contact
-3) change [name] [new phone] - to change the contact
+3) change [name] [old phone] [new phone] - to change the contact
 4) phone [name] - to print number phone
 5) all - to print all numbers
 6) add-birthday [name] [date of birth] - to add the date of birth by name
